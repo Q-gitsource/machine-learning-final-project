@@ -13,11 +13,12 @@ housing_prices_dataset = pd.read_csv(csv_path)
 untrimmed_df = pd.DataFrame(housing_prices_dataset)
 movies_df = untrimmed_df[["title", "release_date", "revenue", "runtime", "vote_average", "adult", "budget", "original_language", "genres", "keywords"]]
 movies_df.dropna(inplace=True) # Drop rows missing values
-print(movies_df.tail)
 
 # Separate features x and target y
-x = df.drop("vote_average", axis=1)
+x = movies_df.drop("vote_average", axis=1)
 encoder = OneHotEncoder()
 x_encoded = encoder.fit_transform(x)
 
-y = df["vote_average"]
+y = movies_df["vote_average"]
+
+print(x_encoded)
