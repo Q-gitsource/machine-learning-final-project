@@ -12,10 +12,10 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import r2_score
 
 # Download latest version of the dataset
-path = kagglehub.dataset_download("asaniczka/tmdb-movies-dataset-2023-930k-movies")
+path = kagglehub.dataset_download("ashpalsingh1525/imdb-movies-dataset")
 csv_path = path + "/" + os.listdir(str(path))[0]
 untrimmed_df = pd.read_csv(csv_path)
-features = ["revenue", "runtime", "vote_average", "vote_count", "budget"]
+features = ["budget_x", "score", "genre", "orig_lang", "date_x"]
 
 ## Data Filtering
 # Select features to analyze
@@ -27,21 +27,27 @@ movies_df = movies_df.dropna()  # Drop rows missing values
 after_na = len(movies_df)
 print(f"{before_na} rows before, {after_na} rows after, {before_na - after_na} removed due to missing values")
 
-# Size before and after dropping 0 values
+# Remove entries with 0 in key numeric columns
 before_filter = len(movies_df)
 movies_df = movies_df[
-    (movies_df["vote_count"] > 0) &
-    (movies_df["budget"] > 0) &
-    (movies_df["revenue"] > 0) &
-    (movies_df["runtime"] > 0)
+    (movies_df["budget_x"] > 0) &
+    (movies_df["score"] > 0)
 ]
 after_filter = len(movies_df)
 print(f"{before_filter} rows before, {after_filter} rows after, {before_filter - after_filter} removed due to '0' values")
 
+# Hot encoder for categorical columns
+encoder = OneHotEncoder()
+categorical = ["genre", "orig_lang", "date_x"]
+swapped = encoder.fit_transform(movies_df[categorical]).toarray()
+feature_names = encoder.get_feature_names_out(categorical)
+transdata = pd.DataFrame(swapped, columns= feature_names)
+FinalMovies = pd.concat([movies_df.drop(categorical, axis=1).reset_index(drop=True), transdata.reset_index(drop=True)], axis=1)
+
 ## Train model on data
 # Separate features x and target y
-x = movies_df.drop(["vote_average"], axis=1)
-y = movies_df["vote_average"]
+x = FinalMovies.drop(["score"], axis=1)
+y = FinalMovies["score"]
 
 # train test split on data
 x_tr, x_ts, y_tr, y_ts = train_test_split(x,y, test_size=0.8, random_state=53)
@@ -58,7 +64,7 @@ print("R² Score:", r2)
 
 ## Visualization
 # Choose the feature you want to isolate
-feature = "revenue"
+feature = "budget_x"
 
 # Copy test set to keep structure
 x_mean = x.mean()   # mean of each feature
