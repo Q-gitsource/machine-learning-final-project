@@ -15,7 +15,8 @@ from sklearn.metrics import r2_score
 path = kagglehub.dataset_download("asaniczka/tmdb-movies-dataset-2023-930k-movies")
 csv_path = path + "/" + os.listdir(str(path))[0]
 untrimmed_df = pd.read_csv(csv_path)
-movies_df = untrimmed_df[["release_date", "revenue", "runtime", "vote_average", "adult", "budget", "original_language", "genres", "keywords"]]
+sample = untrimmed_df.sample(5000, random_state=53)
+movies_df = sample[["release_date", "revenue", "runtime", "vote_average", "adult", "budget", "original_language", "genres", "keywords"]]
 movies_df = movies_df.dropna()  # Drop rows missing values
 
 
@@ -60,8 +61,7 @@ fig, ax = plt.subplots(figsize=(8, 8))
 
 # Scatter plot of actuals
 # ax.scatter(x_ts, y_ts, alpha=0.6, color='steelblue', s=50, label="Actual")
-plt.hexbin(x_ts.values.flatten(), y_ts.values.flatten(), gridsize=50, cmap="Blues")
-plt.colorbar(label="count")
+ax.hexbin(x_ts.values.flatten(), y_ts.values.flatten(), gridsize=50, cmap="Blues")
 
 # Regression line
 ax.plot(X_sorted, y_pred_sorted, color='red', linewidth=2, 
