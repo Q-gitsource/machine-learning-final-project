@@ -145,7 +145,7 @@ plt.xlabel(feature.capitalize())
 plt.ylabel("Vote Average")
 plt.title(f"Effect of {feature.capitalize()} on Predicted Vote Average")
 plt.legend()
-plt.show()
+#plt.show()
 
 # r2_score of 5.7%
 # r2_score after standardization 6.5%
