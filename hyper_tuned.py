@@ -69,7 +69,7 @@ FinalMovies = pd.concat([movies_df.drop(categorical, axis=1).reset_index(drop=Tr
 ## Data Optimization
 # Convert date_x to year month
 FinalMovies["year"] = pd.to_datetime(FinalMovies["date_x"]).dt.year
-FinalMovies["month"] = pd.to_datetime(FinalMovies["year"], format='%Y').dt.month
+FinalMovies["month"] = pd.to_datetime(FinalMovies["year"]).dt.month
 FinalMovies = FinalMovies.drop(["date_x"], axis=1)
 
 # Term Frequency -- Inverse Document Frequency Vectorizer
@@ -108,6 +108,7 @@ y = FinalMovies["score"]
 scaler = StandardScaler()
 x_scaled = scaler.fit_transform(x)
 
+
 # train test split on data
 x_tr, x_ts, y_tr, y_ts = train_test_split(x_scaled, y, test_size=0.2, random_state=53)
 params = {"C": [0.1, 1, 10], "epsilon": [0.01, 0.1, 1], "kernel": ["linear", "rbf"]}
@@ -133,9 +134,9 @@ feature_range = np.linspace(x[feature].min(), x[feature].max(), 200)  # smooth r
 # Construct dataset: all features = mean, except varying 'budget'
 x_feature = pd.DataFrame([x_mean] * len(feature_range))
 x_feature[feature] = feature_range
-
+x_feat_scaled = scaler.transform(x_feature)
 # Predict with model
-y_feature_pred = model.predict(x_feature)
+y_feature_pred = model.predict(x_feat_scaled)
 
 # Plot
 plt.figure(figsize=(8,6))
