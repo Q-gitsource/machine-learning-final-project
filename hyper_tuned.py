@@ -6,7 +6,7 @@ import numpy as np                  # Numerical operations
 from sklearn.svm import SVR
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.metrics import r2_score
 
 # Download latest version of the dataset
@@ -34,7 +34,32 @@ movies_df = movies_df[
 after_filter = len(movies_df)
 print(f"{before_filter} rows before, {after_filter} rows after, {before_filter - after_filter} removed due to '0' values")
 
+# simplifying broad column for more accurate data
+
+
+def simplify_genre(genre):
+    if "Action" in genre or "Adventure" in genre or "Sci-Fi" in genre or "Fantasy" in genre:
+        return "Action/Adventure"
+    elif "Drama" in genre or "Romance" in genre or "Biography" in genre:
+        return "Drama/Romance"
+    elif "Comedy" in genre:
+        return "Comedy"
+    elif "Horror" in genre or "Thriller" in genre or "Mystery" in genre:
+        return "Horror/Thriller"
+    elif "Animation" in genre or "Family" in genre or "Musical" in genre:
+        return "Family/Animation"
+    elif "Crime" in genre or "War" in genre or "Western" in genre:
+        return "Crime/War"
+    else:
+        return "Other"
+
+
+movies_df["genre"] = movies_df["genre"].apply(simplify_genre)
+
+
 # Hot encoder for categorical columns
+
+
 encoder = OneHotEncoder()
 categorical = ["genre", "orig_lang"]
 swapped = encoder.fit_transform(movies_df[categorical]).toarray()
@@ -43,9 +68,11 @@ transdata = pd.DataFrame(swapped, columns= feature_names)
 FinalMovies = pd.concat([movies_df.drop(categorical, axis=1).reset_index(drop=True), transdata.reset_index(drop=True)], axis=1)
 
 ## Data Optimization
-# Convert date_x to year
+# Convert date_x to year month
 FinalMovies["year"] = pd.to_datetime(FinalMovies["date_x"]).dt.year
+FinalMovies["month"] = pd.to_datetime(FinalMovies["year"], format='%Y').dt.month
 FinalMovies = FinalMovies.drop(["date_x"], axis=1)
+
 
 # Log transform skewed budget
 FinalMovies["budget_x"] = np.log1p(FinalMovies["budget_x"])
@@ -55,10 +82,15 @@ FinalMovies["budget_x"] = np.log1p(FinalMovies["budget_x"])
 x = FinalMovies.drop(["score"], axis=1)
 y = FinalMovies["score"]
 
+# standardization for performance boost
+
+scaler = StandardScaler()
+x_scaled = scaler.fit_transform(x)
+
 # train test split on data
-x_tr, x_ts, y_tr, y_ts = train_test_split(x,y, test_size=0.8, random_state=53)
+x_tr, x_ts, y_tr, y_ts = train_test_split(x_scaled, y, test_size=0.2, random_state=53)
 params = {"C": [0.1, 1, 10], "epsilon": [0.01, 0.1, 1], "kernel": ["linear", "rbf"]}
-model = GridSearchCV(SVR(), params, cv=3, scoring="r2", n_jobs=-1)
+model = GridSearchCV(SVR(), params, cv=5, scoring="r2", n_jobs=-1)
 model.fit(x_tr, y_tr)
 y_pred = model.predict(x_ts)
 r2 = r2_score(y_ts, y_pred)
@@ -94,4 +126,6 @@ plt.title(f"Effect of {feature.capitalize()} on Predicted Vote Average")
 plt.legend()
 plt.show()
 
-## r2_score of 5.7%
+# r2_score of 5.7%
+# r2_score after standardization 6.5%
+# r2_score after standard + simple genres 14%

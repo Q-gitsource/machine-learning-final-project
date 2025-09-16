@@ -12,7 +12,7 @@ from sklearn.metrics import r2_score
 
 
 # Download latest version
-path = kagglehub.dataset_download("asaniczka/tmdb-movies-dataset-2023-930k-movies")
+path = kagglehub.dataset_download("ashpalsingh1525/imdb-movies-dataset")
 csv_path = path + "/" + os.listdir(str(path))[0]
 housing_prices_dataset = pd.read_csv(csv_path)
 untrimmed_df = pd.DataFrame(housing_prices_dataset)
@@ -49,6 +49,8 @@ print("R² Score:", r2)
 
 
 ## Visualization
+
+
 # Set up
 plt.style.use('seaborn-v0_8')
 plt.rcParams['font.size'] = 12
@@ -81,3 +83,6 @@ ax.set_title(f'Linear Regression Performance (R² = {r2:.3f})',
             fontsize=14, fontweight='bold')
 ax.legend()
 ax.grid(True, alpha=0.3)
+
+
+
