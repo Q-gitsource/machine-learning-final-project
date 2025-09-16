@@ -8,12 +8,13 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.metrics import r2_score
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Download latest version of the dataset
 path = kagglehub.dataset_download("ashpalsingh1525/imdb-movies-dataset")
 csv_path = path + "/" + os.listdir(str(path))[0]
 untrimmed_df = pd.read_csv(csv_path)
-features = ["budget_x", "score", "genre", "orig_lang", "date_x"]
+features = ["budget_x", "score", "genre", "orig_lang", "date_x", "orig_title", "overview"]
 
 ## Data Filtering
 # Select features to analyze
@@ -58,8 +59,6 @@ movies_df["genre"] = movies_df["genre"].apply(simplify_genre)
 
 
 # Hot encoder for categorical columns
-
-
 encoder = OneHotEncoder()
 categorical = ["genre", "orig_lang"]
 swapped = encoder.fit_transform(movies_df[categorical]).toarray()
@@ -73,6 +72,28 @@ FinalMovies["year"] = pd.to_datetime(FinalMovies["date_x"]).dt.year
 FinalMovies["month"] = pd.to_datetime(FinalMovies["year"], format='%Y').dt.month
 FinalMovies = FinalMovies.drop(["date_x"], axis=1)
 
+# Term Frequency -- Inverse Document Frequency Vectorizer
+overview_vectorizer = TfidfVectorizer(stop_words="english", max_features=5000)
+orig_title_vectorizer = TfidfVectorizer(stop_words="english", max_features=2000)
+
+# Transform each Text Column
+overview_tfidf = overview_vectorizer.fit_transform(FinalMovies["overview"].astype(str))
+orig_title_tfidf = orig_title_vectorizer.fit_transform(FinalMovies["orig_title"].astype(str))
+
+# Convert to Dataframes
+overview_df = pd.DataFrame(overview_tfidf.toarray(),
+                           columns=[f"overview_{w}" for w in overview_vectorizer.get_feature_names_out()])
+orig_title_df = pd.DataFrame(orig_title_tfidf.toarray(),
+                           columns=[f"title_{w}" for w in orig_title_vectorizer.get_feature_names_out()])
+
+FinalMovies = pd.concat(
+    [
+        FinalMovies.drop(columns=["overview", "orig_title"]).reset_index(drop=True),
+        overview_df.reset_index(drop=True),
+        orig_title_df.reset_index(drop=True)
+    ],
+    axis=1
+)
 
 # Log transform skewed budget
 FinalMovies["budget_x"] = np.log1p(FinalMovies["budget_x"])
