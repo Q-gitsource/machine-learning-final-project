@@ -7,12 +7,13 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import r2_score
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Download latest version of the dataset
 path = kagglehub.dataset_download("ashpalsingh1525/imdb-movies-dataset")
 csv_path = path + "/" + os.listdir(str(path))[0]
 untrimmed_df = pd.read_csv(csv_path)
-features = ["budget_x", "score", "genre", "orig_lang", "date_x"]
+features = ["budget_x", "score", "genre", "orig_lang", "date_x", "revenue", "orig_title", "overview"]
 
 ## Data Filtering
 # Select features to analyze
@@ -41,13 +42,33 @@ feature_names = encoder.get_feature_names_out(categorical)
 transdata = pd.DataFrame(swapped, columns= feature_names)
 FinalMovies = pd.concat([movies_df.drop(categorical, axis=1).reset_index(drop=True), transdata.reset_index(drop=True)], axis=1)
 
+# Term Frequency -- Inverse Document Frequency Vectorizer
+overview_vectorizer = TfidfVectorizer(stop_words="english", max_features=500)
+orig_title_vectorizer = TfidfVectorizer(stop_words="english", max_features=200)
+
+# Transform each Text Column
+overview_tfidf = overview_vectorizer.fit_transform(FinalMovies["overview"].astype(str))
+orig_title_tfidf = orig_title_vectorizer.fit_transform(FinalMovies["orig_title"].astype(str))
+
+# Convert to Dataframes
+overview_df = pd.DataFrame(overview_tfidf.toarray(),
+                           columns=[f"overview_{w}" for w in overview_vectorizer.get_feature_names_out()])
+orig_title_df = pd.DataFrame(orig_title_tfidf.toarray(),
+                           columns=[f"title_{w}" for w in orig_title_vectorizer.get_feature_names_out()])
+
+FinalMovies = pd.concat(
+    [
+        FinalMovies.drop(columns=["overview", "orig_title"]).reset_index(drop=True),
+        overview_df.reset_index(drop=True),
+        orig_title_df.reset_index(drop=True)
+    ],
+    axis=1
+)
+
 ## Data Optimization
 # Convert date_x to year
 FinalMovies["year"] = pd.to_datetime(FinalMovies["date_x"]).dt.year
 FinalMovies = FinalMovies.drop(["date_x"], axis=1)
-
-# Log transform skewed budget
-FinalMovies["budget_x"] = np.log1p(FinalMovies["budget_x"])
 
 ## Train model on data
 # Separate features x and target y
@@ -69,7 +90,7 @@ print("R² Score:", r2)
 
 ## Visualization
 # Choose the feature you want to isolate
-feature = "budget_x"
+feature = "revenue"
 
 # Copy test set to keep structure
 x_mean = x.mean()   # mean of each feature
