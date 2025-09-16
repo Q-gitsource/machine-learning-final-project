@@ -76,7 +76,7 @@ x = FinalMovies.drop(["score"], axis=1)
 y = FinalMovies["score"]
 
 # train test split on data
-x_tr, x_ts, y_tr, y_ts = train_test_split(x,y, test_size=0.8, random_state=53)
+x_tr, x_ts, y_tr, y_ts = train_test_split(x,y, train_size=0.8, random_state=53)
 model = RandomForestRegressor(n_estimators=200, max_depth=20, random_state=53, n_jobs=-1)
 model.fit(x_tr, y_tr)
 y_pred = model.predict(x_ts)

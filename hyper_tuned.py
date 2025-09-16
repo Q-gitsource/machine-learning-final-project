@@ -35,9 +35,7 @@ movies_df = movies_df[
 after_filter = len(movies_df)
 print(f"{before_filter} rows before, {after_filter} rows after, {before_filter - after_filter} removed due to '0' values")
 
-# simplifying broad column for more accurate data
-
-
+# Simplifying broad column for more accurate data
 def simplify_genre(genre):
     if "Action" in genre or "Adventure" in genre or "Sci-Fi" in genre or "Fantasy" in genre:
         return "Action/Adventure"
@@ -73,8 +71,8 @@ FinalMovies["month"] = pd.to_datetime(FinalMovies["year"]).dt.month
 FinalMovies = FinalMovies.drop(["date_x"], axis=1)
 
 # Term Frequency -- Inverse Document Frequency Vectorizer
-overview_vectorizer = TfidfVectorizer(stop_words="english", max_features=5000)
-orig_title_vectorizer = TfidfVectorizer(stop_words="english", max_features=2000)
+overview_vectorizer = TfidfVectorizer(stop_words="english", max_features=500)
+orig_title_vectorizer = TfidfVectorizer(stop_words="english", max_features=200)
 
 # Transform each Text Column
 overview_tfidf = overview_vectorizer.fit_transform(FinalMovies["overview"].astype(str))
@@ -151,3 +149,29 @@ plt.legend()
 # r2_score of 5.7%
 # r2_score after standardization 6.5%
 # r2_score after standard + simple genres 14%
+
+
+# -----------------------------
+# Visualisation
+# -----------------------------
+
+## Predicted vs Actual
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(6,6))
+plt.scatter(y_test, y_pred, alpha=0.4)
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], "r--")
+plt.xlabel("Actual Scores")
+plt.ylabel("Predicted Scores")
+plt.title("Predicted vs Actual Movie Scores")
+plt.show()
+
+## Feature Importance
+importances = rf.feature_importances_
+indices = np.argsort(importances)[-20:]  # top 20
+
+plt.figure(figsize=(8,6))
+plt.barh(range(len(indices)), importances[indices], align="center")
+plt.yticks(range(len(indices)), [FinalMovies.columns[i] for i in indices])
+plt.title("Top Feature Importances (RandomForest)")
+plt.show()
