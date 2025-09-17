@@ -12,6 +12,8 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
 
 # Download latest version of the dataset
 path = kagglehub.dataset_download("ashpalsingh1525/imdb-movies-dataset")
@@ -71,8 +73,12 @@ vectorizer = TfidfVectorizer(stop_words="english", max_features=10000)
 tfidf = vectorizer.fit_transform(movies_df["text"])
 svd = TruncatedSVD(n_components=50, random_state=53)
 text_reduced = svd.fit_transform(tfidf)
-text_df = pd.DataFrame(text_reduced, columns=[f"tfidf_{i}" for i in range(text_reduced.shape[1])])
+text_df = pd.DataFrame(text_reduced, columns=[f"tfidf_text_{i}" for i in range(text_reduced.shape[1])])
 
+# Convert date_x to year month
+movies_df["year"] = pd.to_datetime(movies_df["date_x"]).dt.year
+movies_df["month"] = pd.to_datetime(movies_df["year"]).dt.month
+movies_df = movies_df.drop(["date_x"], axis=1)
 
 # TF-IDF (crew)
 movies_df["crew"] = movies_df["crew"].astype(str)
@@ -80,7 +86,7 @@ crew_vectorizer = TfidfVectorizer(stop_words="english", max_features=5000)
 crew_tfidf = crew_vectorizer.fit_transform(movies_df["crew"])
 crew_svd = TruncatedSVD(n_components=100, random_state=53)
 crew_reduced = crew_svd.fit_transform(crew_tfidf)
-crew_df = pd.DataFrame(crew_reduced, columns=[f"tfidf_{i}" for i in range(crew_reduced.shape[1])])
+crew_df = pd.DataFrame(crew_reduced, columns=[f"tfidf_crew_{i}" for i in range(crew_reduced.shape[1])])
 
 
 # Final dataset
@@ -101,13 +107,12 @@ X_train, X_test, y_train, y_test = train_test_split(FinalMovies, y, test_size=0.
 # -----------------------------
 # Models
 # -----------------------------
+# Define feature subsets
 rf_features = numeric + list(cat_df.columns)
-rf_model = RandomForestRegressor(n_estimators=400, max_depth=None, random_state=53, n_jobs=-1)
-# rf_model.fit(X_train[rf_features], y_train)
-# rf_pred = rf_model.predict(X_test[rf_features])
+ridge_features = [c for c in FinalMovies.columns if "tfidf_" in c]
 
 ridge_features = [c for c in FinalMovies.columns if "tfidf_" in c]
-param_grid = {'alpha': [i for i in range(0,10)]}
+param_grid = {'alpha': [i for i in range(1,10)]}
 ridge_grid = GridSearchCV(
     Ridge(),
     param_grid,
@@ -121,27 +126,38 @@ ridge_grid.fit(X_train[ridge_features], y_train)
 best_alpha = ridge_grid.best_params_['alpha']
 print("Best alpha:", best_alpha)
 
-# Refit Ridge with best alpha
-ridge_model = Ridge(alpha=best_alpha)
-# ridge_best.fit(X_train[ridge_features], y_train)
-# ridge_pred = ridge_best.predict(X_test[ridge_features])
+# Transformers to select subsets
+rf_selector = ColumnTransformer([("select", "passthrough", rf_features)], remainder="drop")
+ridge_selector = ColumnTransformer([("select", "passthrough", ridge_features)], remainder="drop")
 
+# Pipelines for each base estimator
+rf_pipeline = Pipeline([
+    ("selector", rf_selector),
+    ("rf", RandomForestRegressor(n_estimators=400, max_depth=None, random_state=53, n_jobs=-1))
+])
 
-# Stacking regressor
+ridge_pipeline = Pipeline([
+    ("selector", ridge_selector),
+    ("ridge", Ridge(alpha=best_alpha))
+])
+
+# Stacking regressor with both pipelines
 stack = StackingRegressor(
     estimators=[
-        ('rf', rf_model),
-        ('ridge', ridge_model)
+        ('rf', rf_pipeline),
+        ('ridge', ridge_pipeline)
     ],
     final_estimator=Ridge(),  # meta-model learns optimal weights
     n_jobs=-1
 )
 
+# -----------------------------
 # Fit stacking model
-stack.fit(X_train[rf_features], y_train)
+# -----------------------------
+stack.fit(X_train, y_train)
 
 # Predict
-y_pred_stack = stack.predict(X_test[rf_features])
+y_pred_stack = stack.predict(X_test)
 print("R²:", r2_score(y_test, y_pred_stack))
 
 # # Ensemble
@@ -157,7 +173,7 @@ print("R²:", r2_score(y_test, y_pred_stack))
 import matplotlib.pyplot as plt
 
 plt.figure(figsize=(6,6))
-plt.scatter(y_test, y_pred, alpha=0.4)
+plt.scatter(y_test, y_pred_stack, alpha=0.4)
 plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], "r--")
 plt.xlabel("Actual Scores")
 plt.ylabel("Predicted Scores")
@@ -165,7 +181,8 @@ plt.title("Predicted vs Actual Movie Scores")
 plt.show()
 
 ## Feature Importance
-importances = rf.feature_importances_
+rf_fitted = stack.named_estimators_['rf'].named_steps['rf']
+importances = rf_fitted.feature_importances_
 indices = np.argsort(importances)[-20:]  # top 20
 
 plt.figure(figsize=(8,6))
@@ -175,9 +192,9 @@ plt.title("Top Feature Importances (RandomForest)")
 plt.show()
 
 # Residuals
-residuals = y_test - y_pred
+residuals = y_test - y_pred_stack
 plt.figure(figsize=(6,4))
-plt.scatter(y_pred, residuals, alpha=0.4)
+plt.scatter(y_pred_stack, residuals, alpha=0.4)
 plt.axhline(0, color="red", linestyle="--")
 plt.xlabel("Predicted")
 plt.ylabel("Residuals")
@@ -186,7 +203,7 @@ plt.show()
 
 # Distribution check
 plt.hist(y_test, bins=30, alpha=0.5, label="Actual")
-plt.hist(y_pred, bins=30, alpha=0.5, label="Predicted")
+plt.hist(y_pred_stack, bins=30, alpha=0.5, label="Predicted")
 plt.legend()
 plt.title("Distribution of Actual vs Predicted Scores")
 plt.show()
